@@ -59,8 +59,17 @@ import asyncio
 
 async def main():
     vm = VoiceManager()
-    result = await vm.record_auto()
-    print(f"Transcribed text: {result}")
+
+    await vm.start_tts()
+    await vm.speak("Hello, how are you?")
+    await vm.flush_tts()
+    await vm.speak("This is a test of the text-to-speech system.")
+    await vm.flush_tts()
+    await vm.speak("Goodbye!")
+    await vm.flush_tts()
+
+    await vm.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
