@@ -1,0 +1,34 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: eunoia-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - eunoia-network
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: eunoia-chromadb
+    ports:
+      - "8000:8000"
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/data
+    volumes:
+      - chromadb_data:/chroma/data
+    networks:
+      - eunoia-network
+
+volumes:
+  mongodb_data:
+  chromadb_data:
+
+networks:
+  eunoia-network:
+    driver: bridge

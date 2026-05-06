@@ -125,12 +125,14 @@ class TextToSpeech():
         while not self.text_queue.empty():
             try:
                 self.text_queue.get_nowait()
+                await self.text_queue.task_done()
             except asyncio.QueueEmpty:
                 break
         
         while not self.audio_queue.empty():
             try:
                 self.audio_queue.get_nowait()
+                await self.audio_queue.task_done()
             except asyncio.QueueEmpty:
                 break
         
@@ -139,8 +141,6 @@ class TextToSpeech():
     async def flush(self) -> None:
         await self.text_queue.join()
         await self.audio_queue.join()
-        
-        print("Queue flushed.")
 
     async def close(self) -> None:    
         await self.interrupt()

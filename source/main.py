@@ -62,9 +62,7 @@ async def main():
 
     await vm.start_tts()
     await vm.speak("Hello, how are you?")
-    await vm.flush_tts()
     await vm.speak("This is a test of the text-to-speech system.")
-    await vm.flush_tts()
     await vm.speak("Goodbye!")
     await vm.flush_tts()
 
