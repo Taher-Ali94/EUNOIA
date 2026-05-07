@@ -21,12 +21,11 @@ class DirectoryManager:
             resolved_path = (self.base_path / requested_path).resolve()
 
             if not resolved_path.is_relative_to(self.base_path):
-                return None
+                return ToolResult(ok=False, message=f"Access denied: {path} is outside of the base directory.")
             
             return resolved_path
         except Exception as e:
-            print(f"Error resolving path: {e}")
-            return None
+            return ToolResult(ok=False, message=f"Error resolving {path}: {e}")
 
     async def list_files(
         self,
@@ -59,8 +58,7 @@ class DirectoryManager:
                 )
             )
         except Exception as e:
-            print(f"Error listing files: {e}")
-            return ToolResult(ok=False, message=f"Error listing files in {path}.")
+            return ToolResult(ok=False, message=f"Error listing files in {path}: {e}.")
 
     def _list_files_sync(
         self,
@@ -88,7 +86,6 @@ class DirectoryManager:
                 })
                 return files
             except Exception as e:
-                print(f"Error accessing {file_path}: {e}")
                 continue
         
 
@@ -117,7 +114,7 @@ class DirectoryManager:
             return ToolResult(ok=True, message=f"Directory {path} created successfully.")
         except Exception as e:
             print(f"Error creating directory: {e}")
-            return ToolResult(ok=False, message=f"Error creating {path}.")
+            return ToolResult(ok=False, message=f"Error creating {path}: {e}")
 
     async def delete_directory(
         self,
@@ -150,8 +147,7 @@ class DirectoryManager:
             
             return ToolResult(ok=True, message=f"Directory {path} deleted successfully.")
         except Exception as e:
-            print(f"Error deleting directory: {e}")
-            return ToolResult(ok=False, message=f"Error deleting {path}.")
+            return ToolResult(ok=False, message=f"Error deleting {path}: {e}")
 
     async def get_directory_info(self, path: str = "."):
 
@@ -176,8 +172,7 @@ class DirectoryManager:
                 data=DirectoryInfo(**info)
             )
         except Exception as e:
-            print(f"Error getting directory info: {e}")
-            return ToolResult(ok=False, message=f"Error getting info for {path}.")
+            return ToolResult(ok=False, message=f"Error getting info for {path}: {e}")
 
     def _get_directory_info_sync(self, path: Path):
         try:
@@ -209,7 +204,7 @@ class DirectoryManager:
                 "total_size_gb": round(total_size / (1024 * 1024 * 1024), 2),
             }
         except Exception as e:
-            print(f"Error calculating directory info: {e}")
+            return ToolResult(ok=False, message=f"Error calculating directory info for {path}: {e}")
 
 
     async def rename_directory(self, old_path: str, new_path: str):
@@ -237,5 +232,33 @@ class DirectoryManager:
             
             return ToolResult(ok=True, message=f"Directory renamed from {old_path} to {new_path} successfully.")
         except Exception as e:
-            print(f"Error renaming directory: {e}")
-            return ToolResult(ok=False, message=f"Error renaming {old_path}.")
+            return ToolResult(ok=False, message=f"Error renaming {old_path}: {e}")
+        
+
+
+"""
+Async methods:
+list_files(path, recursive, pattern) -> ToolResult with DirectoryListing data
+ToolResult contains the fields ok: bool, message: str, data: DirectoryListing
+DirectoryListing contains the fields files: List[FileInfo]
+FileInfo contains the fields name: str, type: str, path: str, size: int, size_mb: float, created: str, modified: str, is_symlink: bool
+
+create_directory(path) -> ToolResult
+ToolResult contains the fields ok: bool, message: str
+
+delete_directory(path, recursive) -> ToolResult
+ToolResult contains the fields ok: bool, message: str
+
+get_directory_info(path) -> ToolResult with DirectoryInfo data
+ToolResult contains the fields ok: bool, message: str, data: DirectoryInfo
+DirectoryInfo contains the fields name: str, path: str, created: str, modified: str, total_files: int, total_directories: int, total_size: int, total_size_mb: float, total_size_gb: float
+
+rename_directory(old_path, new_path) -> ToolResult
+ToolResult contains the fields ok: bool, message: str
+"""
+
+"""
+Create a subagent for directory management tasks that can list files,
+create directories, delete directories, get directory info, and rename directories.
+returns status to main agent for each operation with success or failure and relevant messages.
+"""

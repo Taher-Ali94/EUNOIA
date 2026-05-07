@@ -57,17 +57,32 @@ import asyncio
 #             }
 #         )
 
-async def main():
-    vm = VoiceManager()
+# async def main():
+#     vm = VoiceManager()
 
-    await vm.start_tts()
-    await vm.speak("Hello, how are you?")
-    await vm.speak("This is a test of the text-to-speech system.")
-    await vm.speak("Goodbye!")
-    await vm.flush_tts()
+#     await vm.start_tts()
+#     await vm.speak("Hello, how are you?")
+#     await vm.speak("This is a test of the text-to-speech system.")
+#     await vm.speak("Goodbye!")
+#     await vm.flush_tts()
 
-    await vm.shutdown()
+#     await vm.shutdown()
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())
+
+def dec_dec(name:str,age:int):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            print(f"Decorator 1: Name={name}, Age={age}")
+            return func(*args,name,age ,**kwargs)
+        return wrapper
+    return decorator
+
+@dec_dec(name="Alice", age=30)
+def my_func(name:str,age:int):
+    print(f"Function called with Name={name}, Age={age}")
+
+
+my_func()

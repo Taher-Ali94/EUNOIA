@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from json import JSONDecodeError
 
 class LLMManager:
-    def __init__(self,model_name:str,keep_alive:str="10m"
+    def __init__(self,model_name:str = "Eunoia",keep_alive:str="10m"
                  ,num_predict:int=100,temperature:float=0):
         self.client = Client()
         self.model_name = model_name
@@ -45,7 +45,7 @@ class LLMManager:
             [
                 {
                     "role": "user",
-                    "content": "greet the user by thei name and ask how you can assist them today.",
+                    "content": "greet the user by their name and ask how you can assist them today.",
                 }
             ]
         )

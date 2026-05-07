@@ -1,5 +1,6 @@
 from .speech_to_text.stt import SpeechToText
 from .text_to_speech.tts import TextToSpeech
+import asyncio
 
 class VoiceManager:
     def __init__(
@@ -52,9 +53,6 @@ class VoiceManager:
 
     async def speak(self, text: str) -> None:
         await self.tts.speak(text)
-
-    async def flush_tts(self) -> None:
-        await self.tts.flush()
 
     async def flush_tts(self) -> None:
         await self.tts.flush()

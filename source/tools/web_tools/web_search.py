@@ -23,7 +23,7 @@ class WebSearchTool:
                 })
             return results
         except Exception as e:
-            print(f"Error during DDGS search: {e}")
+            return [ToolResult(ok=False, message=f"Error during DDGS search: {e}")]
 
         
 
@@ -79,7 +79,7 @@ class WebSearchTool:
                 })
             return results
         except Exception as e:
-            print(f"Error during DDGS search: {e}")
+            return [ToolResult(ok=False, message=f"Error during DDGS news search: {e}")]
 
         
 
@@ -102,3 +102,27 @@ class WebSearchTool:
     async def close(self):
         self.executor.shutdown(wait=False)
         await self.client.aclose()
+
+"""
+search(query,max_results) -> ToolResult with WebSearchResults data
+ToolResult contains the fields ok: bool, message: str, data: WebSearchResults
+data -> contains query: str, count: int, results: List[WebSearchResult]
+WebSearchResult contains the fields title: str, url: str, snippet: str
+
+get_page_content(url) -> ToolResult with PageContent data
+ToolResult contains the fields ok: bool, message: str, data: PageContent
+PageContent contains the field content: str
+
+search_news(query,max_results) -> ToolResult with WebSearchResults data
+ToolResult contains the fields ok: bool, message: str, data: WebSearchResults
+data -> contains query: str, count: int, results: List[WebSearchResult]
+WebSearchResult contains the fields title: str, url: str, snippet: str
+
+"""
+
+"""
+create a subagent for web_search that can search for content and news and fetch page content.
+The subagent will then return the entire summary with relevant links and content to the main agent
+which can then use that information to answer the user's query. The subagent should be able to handle
+multiple queries and return results in a structured format that the main agent can easily parse and use.
+"""

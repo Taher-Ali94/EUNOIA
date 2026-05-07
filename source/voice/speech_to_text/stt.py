@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
+from ...pydantic.error_model import ErrorDetail
 
 
 VALID_MODELS = ["tiny", "base", "small", "medium", "large"]
@@ -53,7 +54,7 @@ class SpeechToText:
         self.audio_queue: queue.Queue = queue.Queue()
 
     def record_button_mode_sync(self):
-        print("\n▶️  Press Enter to START recording...")
+        print("\nPress Enter to START recording...")
         input()
 
         print("Recording... Press Enter again to stop.")
@@ -64,7 +65,7 @@ class SpeechToText:
 
         def audio_callback(indata, frames, time, status):
             if status:
-                print(f"⚠️  Audio callback status: {status}")
+                print(f"Audio callback status: {status}")
 
             if self.is_recording:
                 self.audio_queue.put(indata.copy())
@@ -113,10 +114,10 @@ class SpeechToText:
     
     def record_auto_silence_mode_sync(self) -> str:
 
-        print("\n▶️  Press Enter to START recording...")
+        print("\nPress Enter to START recording...")
         input()
         
-        print(f"🔴 Recording... (will stop after {self.silence_duration}s of silence)")
+        print(f"Recording... (will stop after {self.silence_duration}s of silence)")
         
         self.is_recording = True
         self.audio_queue = queue.Queue()
@@ -126,7 +127,7 @@ class SpeechToText:
         
         def audio_callback(indata, frames, time_info, status):
             if status:
-                print(f"⚠️  Audio callback status: {status}")
+                print(f"Audio callback status: {status}")
             
             if self.is_recording:
                 self.audio_queue.put(indata.copy())
@@ -154,7 +155,7 @@ class SpeechToText:
                             silence_count += 1
                             
                             if silence_count >= silence_chunks_needed:
-                                print(f"⏹️  Silence detected for {self.silence_duration} seconds. Stopping recording.")
+                                print(f"Silence detected for {self.silence_duration} seconds. Stopping recording.")
                                 self.is_recording = False
                                 break
                         else:
@@ -173,12 +174,12 @@ class SpeechToText:
                         break
         
         except Exception as e:
-            print(f"❌ Error during recording: {e}")
+            print(f"Error during recording: {e}")
             self.is_recording = False
             return ""
         
         if not chunks:
-            print("⚠️  No audio captured.")
+            print("No audio captured.")
             return ""
 
         audio_data = np.concatenate(chunks, axis=0).flatten()
@@ -198,14 +199,14 @@ class SpeechToText:
             text = " ".join(segment.text for segment in segments).strip()
             
             if not text:
-                print("⚠️  No speech detected in the audio.")
+                print("No speech detected in the audio.")
                 return ""
             
             
             return text
         
         except Exception as e:
-            print(f"❌ Error during transcription: {e}")
+            print(f"Error during transcription: {e}")
             return ""
         
     
