@@ -1,7 +1,10 @@
 import argparse
 import asyncio
+import contextlib
 import importlib.util
 import signal
+
+from langgraph.checkpoint.mongodb import MongoDBSaver
 
 from source.config.settings import get_settings
 from source.core.llm_manager import LLMManager
@@ -68,16 +71,35 @@ async def build_runtime(debug: bool = False):
         memory_client=memory_client,
         max_reasoning_steps=settings.max_reasoning_steps,
     )
-    app = build_graph(nodes).compile()
-    return app, tool_registry, memory_client
+
+    checkpointer_stack = contextlib.ExitStack()
+    checkpointer = None
+    config = None
+    if settings.mongo_checkpointer_enabled:
+        try:
+            checkpointer = checkpointer_stack.enter_context(
+                MongoDBSaver.from_conn_string(settings.mongo_uri, settings.mongo_db_name)
+            )
+            checkpointer.setup()
+            config = {"configurable": {"thread_id": settings.mongo_thread_id}}
+        except Exception as e:
+            checkpointer_stack.close()
+            checkpointer_stack = contextlib.ExitStack()
+            checkpointer = None
+            config = None
+            if debug:
+                print(f"MongoDB checkpointer initialization failed: {e}. Continuing without checkpointing.")
+
+    app = build_graph(nodes).compile(checkpointer=checkpointer)
+    return app, tool_registry, memory_client, checkpointer_stack, config
 
 
-async def ask_assistant(app, messages: list[dict[str, str]], user_input: str) -> str:
-    result = await app.ainvoke({"messages": messages, "current_user_input": user_input})
+async def ask_assistant(app, messages: list[dict[str, str]], user_input: str, config: dict | None = None) -> str:
+    result = await app.ainvoke({"messages": messages, "current_user_input": user_input}, config=config)
     messages[:] = list(result.get("messages", messages))
     return result.get("final_response") or "I ran into an issue generating a response."
 
-async def run_text_mode(app, messages: list[dict[str, str]], stop_event: asyncio.Event) -> None:
+async def run_text_mode(app, messages: list[dict[str, str]], stop_event: asyncio.Event, config: dict | None = None) -> None:
     while not stop_event.is_set():
         try:
             user_input = input("You: ").strip()
@@ -89,11 +111,11 @@ async def run_text_mode(app, messages: list[dict[str, str]], stop_event: asyncio
         if user_input.lower() in EXIT_COMMANDS:
             break
 
-        response = await ask_assistant(app, messages, user_input)
+        response = await ask_assistant(app, messages, user_input, config=config)
         print(f"Assistant: {response}")
 
 
-async def run_voice_mode(args: argparse.Namespace, app, messages: list[dict[str, str]], stop_event: asyncio.Event) -> None:
+async def run_voice_mode(args: argparse.Namespace, app, messages: list[dict[str, str]], stop_event: asyncio.Event, config: dict | None = None) -> None:
     from source.voice.voice_manager import VoiceManager
 
     voice_manager = VoiceManager(
@@ -130,7 +152,7 @@ async def run_voice_mode(args: argparse.Namespace, app, messages: list[dict[str,
             if user_input.lower() in EXIT_COMMANDS:
                 break
 
-            response = await ask_assistant(app, messages, user_input)
+            response = await ask_assistant(app, messages, user_input, config=config)
             print(f"Assistant: {response}")
             await voice_manager.speak(response)
 
@@ -148,18 +170,19 @@ async def async_main(args: argparse.Namespace) -> int:
         except NotImplementedError:
             pass
 
-    app, tool_registry, memory_client = await build_runtime(debug=args.debug)
+    app, tool_registry, memory_client, checkpointer_stack, config = await build_runtime(debug=args.debug)
     messages: list[dict[str, str]] = []
     try:
         if args.mode == "voice":
-            await run_voice_mode(args=args, app=app, messages=messages, stop_event=stop_event)
+            await run_voice_mode(args=args, app=app, messages=messages, stop_event=stop_event, config=config)
         else:
-            await run_text_mode(app=app, messages=messages, stop_event=stop_event)
+            await run_text_mode(app=app, messages=messages, stop_event=stop_event, config=config)
         return 0
     finally:
         await tool_registry.close()
         if memory_client is not None:
             await memory_client.stop()
+        checkpointer_stack.close()
 
 
 def main() -> int:
