@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import importlib.util
 import signal
-from typing import Optional
 
 from source.config.settings import get_settings
 from source.core.llm_manager import LLMManager
@@ -24,7 +23,7 @@ def missing_voice_dependencies() -> list[str]:
     return [name for name in required if importlib.util.find_spec(name) is None]
 
 
-def build_parser(default_mode: str) -> argparse.ArgumentParser:
+def parse_args(default_mode: str) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run EUNOIA assistant in text or voice mode.")
     parser.add_argument("--mode", choices=["voice", "text"], default=default_mode)
     parser.add_argument("--debug", action="store_true")
@@ -41,30 +40,10 @@ def build_parser(default_mode: str) -> argparse.ArgumentParser:
     parser.add_argument("--tts-speed", type=float, default=1.0)
     parser.add_argument("--tts-sample-rate", type=int, default=24000)
     parser.add_argument("--tts-num-workers", type=int, default=2)
-    return parser
+    return parser.parse_args()
 
 
-class AssistantRuntime:
-    def __init__(self, app, tool_registry: ToolRegistry, memory_client: Optional[MemoryClient]):
-        self.app = app
-        self.tool_registry = tool_registry
-        self.memory_client = memory_client
-        self.messages: list[dict[str, str]] = []
-
-    async def ask(self, user_input: str) -> str:
-        result = await self.app.ainvoke(
-            {"messages": self.messages, "current_user_input": user_input}
-        )
-        self.messages = list(result.get("messages", self.messages))
-        return result.get("final_response") or "I ran into an issue generating a response."
-
-    async def close(self) -> None:
-        await self.tool_registry.close()
-        if self.memory_client is not None:
-            await self.memory_client.stop()
-
-
-async def build_runtime(debug: bool = False) -> AssistantRuntime:
+async def build_runtime(debug: bool = False):
     settings = get_settings()
     llm_manager = LLMManager(
         model_name=settings.llm_model_name,
@@ -74,7 +53,7 @@ async def build_runtime(debug: bool = False) -> AssistantRuntime:
     )
     tool_registry = ToolRegistry(base_path=settings.tool_base_path)
 
-    memory_client: Optional[MemoryClient] = None
+    memory_client = None
     if settings.memory_enabled:
         candidate = MemoryClient(user_id=settings.memory_user_id)
         await candidate.initialize_memory()
@@ -89,13 +68,16 @@ async def build_runtime(debug: bool = False) -> AssistantRuntime:
         memory_client=memory_client,
         max_reasoning_steps=settings.max_reasoning_steps,
     )
-
-    graph = build_graph(nodes)
-    app = graph.compile()
-    return AssistantRuntime(app=app, tool_registry=tool_registry, memory_client=memory_client)
+    app = build_graph(nodes).compile()
+    return app, tool_registry, memory_client
 
 
-async def run_text_mode(runtime: AssistantRuntime, stop_event: asyncio.Event) -> None:
+async def ask_assistant(app, messages: list[dict[str, str]], user_input: str) -> str:
+    result = await app.ainvoke({"messages": messages, "current_user_input": user_input})
+    messages[:] = list(result.get("messages", messages))
+    return result.get("final_response") or "I ran into an issue generating a response."
+
+async def run_text_mode(app, messages: list[dict[str, str]], stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
         try:
             user_input = input("You: ").strip()
@@ -107,11 +89,11 @@ async def run_text_mode(runtime: AssistantRuntime, stop_event: asyncio.Event) ->
         if user_input.lower() in EXIT_COMMANDS:
             break
 
-        response = await runtime.ask(user_input)
+        response = await ask_assistant(app, messages, user_input)
         print(f"Assistant: {response}")
 
 
-async def run_voice_mode(args: argparse.Namespace, runtime: AssistantRuntime, stop_event: asyncio.Event) -> None:
+async def run_voice_mode(args: argparse.Namespace, app, messages: list[dict[str, str]], stop_event: asyncio.Event) -> None:
     from source.voice.voice_manager import VoiceManager
 
     voice_manager = VoiceManager(
@@ -148,7 +130,7 @@ async def run_voice_mode(args: argparse.Namespace, runtime: AssistantRuntime, st
             if user_input.lower() in EXIT_COMMANDS:
                 break
 
-            response = await runtime.ask(user_input)
+            response = await ask_assistant(app, messages, user_input)
             print(f"Assistant: {response}")
             await voice_manager.speak(response)
 
@@ -166,20 +148,23 @@ async def async_main(args: argparse.Namespace) -> int:
         except NotImplementedError:
             pass
 
-    runtime = await build_runtime(debug=args.debug)
+    app, tool_registry, memory_client = await build_runtime(debug=args.debug)
+    messages: list[dict[str, str]] = []
     try:
         if args.mode == "voice":
-            await run_voice_mode(args=args, runtime=runtime, stop_event=stop_event)
+            await run_voice_mode(args=args, app=app, messages=messages, stop_event=stop_event)
         else:
-            await run_text_mode(runtime=runtime, stop_event=stop_event)
+            await run_text_mode(app=app, messages=messages, stop_event=stop_event)
         return 0
     finally:
-        await runtime.close()
+        await tool_registry.close()
+        if memory_client is not None:
+            await memory_client.stop()
 
 
 def main() -> int:
     default_mode = "voice" if voice_dependencies_available() else "text"
-    args = build_parser(default_mode=default_mode).parse_args()
+    args = parse_args(default_mode=default_mode)
 
     missing_deps = missing_voice_dependencies()
     if args.mode == "voice" and missing_deps:
