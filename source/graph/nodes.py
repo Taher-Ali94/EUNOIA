@@ -3,7 +3,6 @@ from ..core.llm_manager import LLMManager
 from ..tools.registry import ToolRegistry
 from .state import AssistantState
 from ..memory.long_term_mem0.mem_client import MemoryClient
-from typing import List
 
 
 class AssistantNodes:
@@ -15,7 +14,7 @@ class AssistantNodes:
 
 
     def ingest_input(self, state: AssistantState):
-        messages = List(state.get("messages", []))
+        messages = list(state.get("messages", []))
         user_input = state.get("current_user_input", "").strip()
 
         if user_input:
@@ -43,7 +42,7 @@ class AssistantNodes:
             return {"memory_hits": []}
         
         try:
-            hits = self.memory_client.search(query=query, limit=5)
+            hits = await self.memory_client.search_memory(query=query, limit=5)
             return {"memory_hits": hits}
         except Exception as e:
             return {"memory_hits": [], "error": f"Memory retrieval error: {e}"}
@@ -60,7 +59,7 @@ class AssistantNodes:
     
     async def planner(self, state: AssistantState):
         llm_messages = self.build_llm_messages(state)
-        llm_messages_scratch = List(llm_messages)
+        llm_messages_scratch = list(llm_messages)
         max_steps = max(1, self.max_reasoning_steps)
         reasoning_steps = 0
         final_raw = "" 
@@ -81,9 +80,9 @@ class AssistantNodes:
             if step in ("TOOL", "ANSWER"):
                 return {
                     "step": step,
-                    "tool_name": parsed.tool_name,
+                    "tool_name": parsed.tool,
                     "tool_input": parsed.tool_input,
-                    "final_response": parsed.final_response if step == "ANSWER" else None,
+                    "final_response": parsed.content if step == "ANSWER" else None,
                     "llm_output_raw": final_raw,
                     "reasoning_steps": reasoning_steps,
                 }
@@ -97,10 +96,11 @@ class AssistantNodes:
             "reasoning_steps": reasoning_steps,
         }
     
-    def observe_and_replan(self, state: AssistantState, tool_result):
-        messages = List(state.get("messages", []))
+    def observe_and_replan(self, state: AssistantState):
+        messages = list(state.get("messages", []))
         tool_name = state.get("tool_name")
         tool_input = state.get("tool_input")
+        tool_result = state.get("tool_result")
         serialized_result = json.dumps(tool_result, ensure_ascii=False)
 
         messages.append(

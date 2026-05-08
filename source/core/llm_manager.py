@@ -13,9 +13,11 @@ class LLMManager:
         self.temperature = temperature
         self.output = None 
 
-    async def call_llm(self,messages=list):
+    async def call_llm(self, messages=None):
+        if messages is None:
+            messages = []
         try:
-            response = self.client.chat(
+            response = await self.client.chat(
                 model=self.model_name,
                 messages=messages,
                 keep_alive=self.keep_alive,
@@ -51,5 +53,4 @@ class LLMManager:
                 }
             ]
         )
-
 

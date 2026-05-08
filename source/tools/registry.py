@@ -1,7 +1,7 @@
 import json
-from .file_tools import FileManager
-from .file_tools import DirectoryManager
-from .web_tools import WebManager
+from .file_tools.file_manager import FileManager
+from .file_tools.directory_manager import DirectoryManager
+from .web_tools.web_search import WebSearchTool
 from typing import Any
 
 def model_to_dict(value: Any):
@@ -17,7 +17,7 @@ class ToolRegistry:
     def __init__(self, base_path: str = "./sandbox"):
         self.file_manager = FileManager(base_path)
         self.directory_manager = DirectoryManager(base_path)
-        self.web_manager = WebManager()
+        self.web_manager = WebSearchTool()
 
     def parse_json_input(self,raw :str | None):
         if raw is None:
