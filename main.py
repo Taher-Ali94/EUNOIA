@@ -16,8 +16,12 @@ EXIT_COMMANDS = {"exit", "quit"}
 
 
 def voice_dependencies_available() -> bool:
+    return not missing_voice_dependencies()
+
+
+def missing_voice_dependencies() -> list[str]:
     required = ("sounddevice", "kokoro", "faster_whisper")
-    return all(importlib.util.find_spec(name) is not None for name in required)
+    return [name for name in required if importlib.util.find_spec(name) is None]
 
 
 def build_parser(default_mode: str) -> argparse.ArgumentParser:
@@ -177,7 +181,10 @@ def main() -> int:
     default_mode = "voice" if voice_dependencies_available() else "text"
     args = build_parser(default_mode=default_mode).parse_args()
 
-    if args.mode == "voice" and not voice_dependencies_available():
+    missing_deps = missing_voice_dependencies()
+    if args.mode == "voice" and missing_deps:
+        if args.debug:
+            print(f"Missing voice dependencies: {', '.join(missing_deps)}")
         print("Voice dependencies are unavailable. Falling back to text mode.")
         args.mode = "text"
 

@@ -13,7 +13,7 @@ class LLMManager:
         self.temperature = temperature
         self.output = None 
 
-    async def call_llm(self, messages=None):
+    async def call_llm(self, messages: list[dict[str, str]] | None = None):
         if messages is None:
             messages = []
         try:
@@ -53,4 +53,3 @@ class LLMManager:
                 }
             ]
         )
-
