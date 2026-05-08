@@ -1,13 +1,11 @@
 # source/tasks/directory_manager.py
 import asyncio
-from importlib.resources import path
 from pathlib import Path
 from datetime import datetime
 import shutil
 from concurrent.futures import ThreadPoolExecutor
-
-from requests.help import info
 from ...pydantic.directory_tools_model import DirectoryEntry, DirectoryListing, DirectoryInfo, ToolResult
+from functools import partial
 
 class DirectoryManager:
     def __init__(self, base_path: str = "./"):
@@ -21,11 +19,11 @@ class DirectoryManager:
             resolved_path = (self.base_path / requested_path).resolve()
 
             if not resolved_path.is_relative_to(self.base_path):
-                return ToolResult(ok=False, message=f"Access denied: {path} is outside of the base directory.")
+                return None, ToolResult(ok=False, message=f"Access denied: {path} is outside of the base directory.")
             
-            return resolved_path
+            return resolved_path, None
         except Exception as e:
-            return ToolResult(ok=False, message=f"Error resolving {path}: {e}")
+            return None, ToolResult(ok=False, message=f"Error resolving {path}: {e}")
 
     async def list_files(
         self,
@@ -33,10 +31,13 @@ class DirectoryManager:
         recursive: bool = False,
         pattern: str = "*"
     ):
-        safe_path = self.safe_path(path)
+        safe_path , error = self.safe_path(path)
+
+        if error:
+            return error
 
         if not safe_path or not safe_path.is_dir():
-            return  ToolResult(ok=False, message=f"{path} is not a directory or does not exist.")
+            return ToolResult(ok=False, message=f"{path} is not a directory or does not exist.")
         
         try:
             loop = asyncio.get_running_loop()
@@ -84,18 +85,19 @@ class DirectoryManager:
                     "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                     "is_symlink": file_path.is_symlink(),
                 })
-                return files
+                
             except Exception as e:
                 continue
+        return files
         
 
 
     async def create_directory(self, path: str) :
 
-        safe_path = self.safe_path(path)
+        safe_path,error = self.safe_path(path)
 
-        if not safe_path:
-            return ToolResult(ok=False, message=f"Invalid path: {path}.")
+        if error:
+            return error
         
         if safe_path.exists():
             if safe_path.is_dir():
@@ -107,9 +109,7 @@ class DirectoryManager:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 self.executor,
-                safe_path.mkdir,
-                True, 
-                True   
+                partial(safe_path.mkdir, parents=True, exist_ok=True)
             )
             return ToolResult(ok=True, message=f"Directory {path} created successfully.")
         except Exception as e:
@@ -122,7 +122,10 @@ class DirectoryManager:
         recursive: bool = False
     ):
 
-        safe_path = self.safe_path(path)
+        safe_path,error = self.safe_path(path)
+
+        if error:
+            return error
 
         if not safe_path or not safe_path.exists():
             return ToolResult(ok=False, message=f"{path} does not exist.")
@@ -151,7 +154,10 @@ class DirectoryManager:
 
     async def get_directory_info(self, path: str = "."):
 
-        safe_path = self.safe_path(path)
+        safe_path,error = self.safe_path(path)
+
+        if error:
+            return error
 
         if not safe_path or not safe_path.exists():
             return ToolResult(ok=False, message=f"{path} does not exist.")
@@ -175,47 +181,51 @@ class DirectoryManager:
             return ToolResult(ok=False, message=f"Error getting info for {path}: {e}")
 
     def _get_directory_info_sync(self, path: Path):
-        try:
-            stat = path.stat()
 
-            total_files = 0
-            total_dirs = 0
-            total_size = 0
-            
-            for item in path.rglob("*"):
-                try:
-                    if item.is_file():
-                        total_files += 1
-                        total_size += item.stat().st_size
-                    elif item.is_dir():
-                        total_dirs += 1
-                except Exception:
-                    continue
-            
-            return {
-                "name": path.name,
-                "path": str(path),
-                "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
-                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                "total_files": total_files,
-                "total_directories": total_dirs,
-                "total_size": total_size,
-                "total_size_mb": round(total_size / (1024 * 1024), 2),
-                "total_size_gb": round(total_size / (1024 * 1024 * 1024), 2),
-            }
-        except Exception as e:
-            return ToolResult(ok=False, message=f"Error calculating directory info for {path}: {e}")
+        stat = path.stat()
+
+        total_files = 0
+        total_dirs = 0
+        total_size = 0
+
+        for item in path.rglob("*"):
+            try:
+                if item.is_file():
+                    total_files += 1
+                    total_size += item.stat().st_size
+                elif item.is_dir():
+                    total_dirs += 1
+            except Exception:
+                continue
+
+        return {
+            "name": path.name,
+            "path": str(path),
+            "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
+            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "total_files": total_files,
+            "total_directories": total_dirs,
+            "total_size": total_size,
+            "total_size_mb": round(total_size / (1024 * 1024), 2),
+            "total_size_gb": round(total_size / (1024 * 1024 * 1024), 2),
+        }
 
 
     async def rename_directory(self, old_path: str, new_path: str):
         
-        safe_old_path = self.safe_path(old_path)
+        safe_old_path,error = self.safe_path(old_path)
+
+        if error:
+            return error
 
         if not safe_old_path or not safe_old_path.is_dir():
             return ToolResult(ok=False, message=f"{old_path} is not a directory or does not exist.")
         
         try:
-            new_full_path = self.safe_path(str(safe_old_path.parent / new_path))
+            new_full_path,error = self.safe_path(str(safe_old_path.parent / new_path))
+
+            if error:
+                return error
 
             if not new_full_path:
                 return ToolResult(ok=False, message=f"Invalid new path: {new_path}.")

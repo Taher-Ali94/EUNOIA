@@ -2,7 +2,7 @@ from functools import wraps
 from langgraph.checkpoint.mongodb import MongoDBSaver
 
 
-def with_mongo_checkpointer(uri: str, db_name: str, thread_id: str):
+def with_mongo_checkpointer(uri: str = "mongodb://localhost:27017", db_name: str = "Eunoia_Memories", thread_id: str = "default_thread"):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):

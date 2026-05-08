@@ -19,14 +19,17 @@ class FileManager:
             resolved_path = (self.base_path / requested_path).resolve()
 
             if not resolved_path.is_relative_to(self.base_path):
-                return ToolResult(ok=False, message=f"Access denied: {path} is outside of the base directory.")
+                return None, ToolResult(ok=False, message=f"Access denied: {path} is outside of the base directory.")
             
-            return resolved_path
+            return resolved_path ,None
         except Exception as e:
-            return ToolResult(ok=False, message=f"Error resolving {path}: {e}.")
+            return None, ToolResult(ok=False, message=f"Error resolving {path}: {e}.")
 
     async def read_file(self,path:str):
-        safe_path = self.safe_path(path)
+        safe_path ,error = self.safe_path(path)
+
+        if error:
+            return error
 
         if not safe_path or not safe_path.exists():
             return ToolResult(ok=False, message=f"{path} does not exist.")
@@ -45,7 +48,10 @@ class FileManager:
         
 
     def get_file_info(self,path:str):
-        safe_path = self.safe_path(path)
+        safe_path,error  = self.safe_path(path)
+
+        if error:
+            return error
 
         if not safe_path or not safe_path.exists():
             return ToolResult(ok=False, message=f"{path} does not exist.")
@@ -64,10 +70,10 @@ class FileManager:
             return ToolResult(ok=False, message=f"Error getting info for {path}: {e}")
 
     async def create_file(self,path:str,content:str="",overwrite:bool=False):
-        safe_path = self.safe_path(path)
+        safe_path,error = self.safe_path(path)
 
-        if not safe_path:
-            return ToolResult(ok=False, message=f"Invalid path: {path}.")
+        if error:
+            return error
         
         if safe_path.exists() and not overwrite:
             return ToolResult(ok=False, message=f"{path} already exists.")
@@ -82,10 +88,10 @@ class FileManager:
             return ToolResult(ok=False, message=f"Error creating {path}: {e}.")
         
     async def write_file(self,path:str,content:str,append:bool=False):
-        safe_path = self.safe_path(path)
+        safe_path,error = self.safe_path(path)
 
-        if not safe_path:
-            return ToolResult(ok=False, message=f"Invalid path: {path}.")
+        if error:
+            return error
         
         try:
             safe_path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,10 +120,10 @@ class FileManager:
         
 
     async def delete_file(self,path:str):
-        safe_path = self.safe_path(path)
+        safe_path,error = self.safe_path(path)
 
-        if not safe_path or not safe_path.exists():
-            return ToolResult(ok=False, message=f"{path} does not exist.")
+        if error:
+            return error
         
         try:
             loop = asyncio.get_running_loop()
@@ -128,8 +134,14 @@ class FileManager:
         
 
     async def rename_file(self,old_path:str,new_path:str):
-        safe_old_path = self.safe_path(old_path)
-        safe_new_path = self.safe_path(new_path)
+        safe_old_path, old_error = self.safe_path(old_path)
+        safe_new_path, new_error = self.safe_path(new_path)
+
+        if old_error:
+            return old_error
+        
+        if new_error:
+            return new_error
 
         if not safe_old_path or not safe_old_path.exists():
             return ToolResult(ok=False, message=f"{old_path} does not exist.")

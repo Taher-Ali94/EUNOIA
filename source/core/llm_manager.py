@@ -1,4 +1,4 @@
-from ollama import Client
+from ollama import AsyncClient as Client
 from ..pydantic.llm_response_model import LLMResponse
 from pydantic import ValidationError
 from json import JSONDecodeError
@@ -13,35 +13,37 @@ class LLMManager:
         self.temperature = temperature
         self.output = None 
 
-    def call_llm(self,messages=list):
-        response = self.client.chat(
-            model=self.model_name,
-            messages=messages,
-            keep_alive=self.keep_alive,
-            options={
-                "num_predict": self.num_predict,
-                "temperature": self.temperature,
-            },
-            stream=False,
-            format=LLMResponse.model_json_schema()
-        )
+    async def call_llm(self,messages=list):
+        try:
+            response = self.client.chat(
+                model=self.model_name,
+                messages=messages,
+                keep_alive=self.keep_alive,
+                options={
+                    "num_predict": self.num_predict,
+                    "temperature": self.temperature,
+                },
+                stream=False,
+                format=LLMResponse.model_json_schema()
+            )
+        except Exception as e:
+            print(f"Error calling LLM: {e}")
+            self.output = None
+            return self.output, ""
 
         raw = response["message"]["content"]
 
         try:
             self.output = LLMResponse.model_validate_json(raw)
-        except Exception as e:
-            print("Error parsing LLM response:", e)
-        except ValidationError as e:
-                print(f"Pydantic validation failed: {e}")
-        except JSONDecodeError as e:
-            print(f"JSON parsing failed: {e}")
+        except (ValidationError, JSONDecodeError, Exception) as e:
+            print(f"Error parsing LLM response: {e}")
+            print(f"Raw LLM output: {raw}")
             self.output = None
 
         return self.output , raw
     
-    def wake_llm(self):
-        return self.call_llm(
+    async def wake_llm(self):
+        return  await self.call_llm(
             [
                 {
                     "role": "user",
