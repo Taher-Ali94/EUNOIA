@@ -5,14 +5,14 @@ Local assistant runtime with text and voice interfaces.
 ## Run
 
 ```bash
-python /home/runner/work/EUNOIA/EUNOIA/main.py --mode text
-python /home/runner/work/EUNOIA/EUNOIA/main.py --mode voice
+python main.py --mode text
+python main.py --mode voice
 ```
 
 Voice mode supports existing voice pipeline options:
 
 ```bash
-python /home/runner/work/EUNOIA/EUNOIA/main.py --mode voice --record-mode auto --device cpu --model-size small
+python main.py --mode voice --record-mode auto --device cpu --model-size small
 ```
 
 Exit with `exit` / `quit` (or `Ctrl+C`).
