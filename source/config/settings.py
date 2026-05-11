@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -12,12 +12,12 @@ class Settings(BaseSettings):
     max_reasoning_steps: int = 6
 
     memory_enabled: bool = True
-    memory_user_id: str = "EunoiaUser"
+    memory_user_id: str = "YOUR-USER-ID"
 
     mongo_checkpointer_enabled: bool = True
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db_name: str = "eunoia"
-    mongo_thread_id: str = "EunoiaUser"
+    mongo_thread_id: str = "YOUR-USER-ID"
 
 
 @lru_cache(maxsize=1)

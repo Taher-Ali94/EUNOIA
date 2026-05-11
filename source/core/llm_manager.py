@@ -32,7 +32,6 @@ class LLMManager:
             return self.output, ""
 
         raw = response["message"]["content"]
-        print(raw)
 
         try:
             self.output = LLMResponse.model_validate_json(raw)

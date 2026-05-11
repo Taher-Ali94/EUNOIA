@@ -6,7 +6,6 @@ from typing import List
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
-from ...pydantic.error_model import ErrorDetail
 
 
 VALID_MODELS = ["tiny", "base", "small", "medium", "large"]
