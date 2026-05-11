@@ -81,6 +81,7 @@ class MemoryClient:
                 result = self.result_cache.pop(task_id)
 
                 if result.get("status") == "success":
+                    print(f"✅ Search completed: {query} - {len(result.get('results', []))} results",result.get("results", []))
                     return result.get("results", [])
                 else:
                     print(f"Error in search: {result.get('error')}")
@@ -119,6 +120,7 @@ class MemoryClient:
             messages=messages,
             user_id=self.user_id,
         )
+        print(f"Memory added: {len(messages)} messages")
 
     async def search_worker(self):
         try:

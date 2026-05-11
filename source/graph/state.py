@@ -1,9 +1,11 @@
 from typing import Any, Literal,Optional
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+from typing import Annotated
+from operator import add
 
 
 class AssistantState(TypedDict, total=False):
-    messages: list[dict[str, str]]
+    messages: Annotated[list[dict[str, str]], add]
     current_user_input: str
     step: Literal["THINK", "TOOL", "OBSERVE", "ANSWER"]
 

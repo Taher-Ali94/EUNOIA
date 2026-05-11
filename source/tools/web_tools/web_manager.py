@@ -5,7 +5,7 @@ import httpx
 from bs4 import BeautifulSoup
 from ...pydantic.web_search_model import WebSearchResult, PageContent ,WebSearchResults, ToolResult
 
-class WebSearchTool:
+class WebManager:
     def __init__(self,timeout:int=10):
         self.timeout = timeout
         self.client = httpx.AsyncClient(timeout=self.timeout)

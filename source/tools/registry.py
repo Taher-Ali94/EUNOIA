@@ -1,7 +1,7 @@
 import json
-from .file_tools import FileManager
-from .file_tools import DirectoryManager
-from .web_tools import WebManager
+from .file_tools.file_manager import FileManager
+from .web_tools.web_manager import WebManager
+from .file_tools.directory_manager import DirectoryManager
 from typing import Any
 
 def model_to_dict(value: Any):
@@ -36,12 +36,16 @@ class ToolRegistry:
 
         if tool_name == "web_search":
             query = input_data.get("query") if isinstance(input_data, dict) else None
+            if not query:
+                return {"ok": False, "message": "web_search requires a query."}
             max_results = input_data.get("max_results", 5) if isinstance(input_data, dict) else 5
             result = await self.web_manager.search(query, max_results)
             return model_to_dict(result)
         
         if tool_name == "search_news":
             query = input_data.get("query") if isinstance(input_data, dict) else str(input_data)
+            if not query:
+                return {"ok": False, "message": "search_news requires a query."}
             max_results = input_data.get("max_results", 5) if isinstance(input_data, dict) else 5
             result = await self.web_manager.search_news(query=query, max_results=max_results)
             return model_to_dict(result)

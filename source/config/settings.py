@@ -8,22 +8,16 @@ class Settings(BaseSettings):
     llm_num_predict: int = 200
     llm_temperature: float = 0.0
 
-    tool_base_path: str = "."
+    tool_base_path: str = "./sandbox"
     max_reasoning_steps: int = 6
 
     memory_enabled: bool = True
     memory_user_id: str = "EunoiaUser"
 
-    mongo_checkpointer_enabled: bool = False
+    mongo_checkpointer_enabled: bool = True
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db_name: str = "eunoia"
     mongo_thread_id: str = "EunoiaUser"
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
 
 
 @lru_cache(maxsize=1)

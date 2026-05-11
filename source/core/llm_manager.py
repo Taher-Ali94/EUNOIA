@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 class LLMManager:
     def __init__(self,model_name:str = "Eunoia",keep_alive:str="10m"
-                 ,num_predict:int=100,temperature:float=0):
+                 ,num_predict:int=200,temperature:float=0):
         self.client = Client()
         self.model_name = model_name
         self.keep_alive = keep_alive
@@ -13,9 +13,9 @@ class LLMManager:
         self.temperature = temperature
         self.output = None 
 
-    async def call_llm(self,messages=list):
+    async def call_llm(self,messages=list[dict[str, str]]):
         try:
-            response = self.client.chat(
+            response = await self.client.chat(
                 model=self.model_name,
                 messages=messages,
                 keep_alive=self.keep_alive,
@@ -32,6 +32,7 @@ class LLMManager:
             return self.output, ""
 
         raw = response["message"]["content"]
+        print(raw)
 
         try:
             self.output = LLMResponse.model_validate_json(raw)

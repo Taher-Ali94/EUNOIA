@@ -3,11 +3,10 @@ from ..core.llm_manager import LLMManager
 from ..tools.registry import ToolRegistry
 from .state import AssistantState
 from ..memory.long_term_mem0.mem_client import MemoryClient
-from typing import List
 
 
 class AssistantNodes:
-    def __init__(self, llm_manager: LLMManager, tool_registry: ToolRegistry, memory_client: MemoryClient, max_reasoning_steps: int = 5):
+    def __init__(self, llm_manager: LLMManager, tool_registry: ToolRegistry, memory_client: MemoryClient, max_reasoning_steps: int = 6):
         self.llm_manager = llm_manager
         self.tool_registry = tool_registry
         self.memory_client = memory_client
@@ -15,14 +14,11 @@ class AssistantNodes:
 
 
     def ingest_input(self, state: AssistantState):
-        messages = List(state.get("messages", []))
         user_input = state.get("current_user_input", "").strip()
 
         if user_input:
-            messages.append({"role": "user", "content": user_input})
-
-        return {
-            "messages": messages,
+            return {
+            "messages": [{"role": "user", "content": user_input}],
             "current_user_input": user_input,
             "step": "THINK",
             "tool_name": None,
@@ -31,8 +27,12 @@ class AssistantNodes:
             "error": None,
             "final_response": None,
             "reasoning_steps": 0,
+            }
+        
+        return {
+            "messages": [],
         }
-    
+
     async def retrieve_memory(self, state: AssistantState):
         if self.memory_client is None:
             return {"memory_hits": []}
@@ -43,7 +43,7 @@ class AssistantNodes:
             return {"memory_hits": []}
         
         try:
-            hits = self.memory_client.search(query=query, limit=5)
+            hits = await self.memory_client.search_memory(query=query, limit=5)
             return {"memory_hits": hits}
         except Exception as e:
             return {"memory_hits": [], "error": f"Memory retrieval error: {e}"}
@@ -54,13 +54,13 @@ class AssistantNodes:
 
         if memory_hits:
             message_summary = json.dumps(memory_hits, ensure_ascii=False)
-            messages.append({"role": "system", "content": f"Relevant memories:\n{message_summary}"})
+            messages.insert(0, {"role": "system", "content": f"Relevant memories:\n{message_summary}"})
         
         return messages
     
     async def planner(self, state: AssistantState):
         llm_messages = self.build_llm_messages(state)
-        llm_messages_scratch = List(llm_messages)
+        llm_messages_scratch = list(llm_messages)
         max_steps = max(1, self.max_reasoning_steps)
         reasoning_steps = 0
         final_raw = "" 
@@ -81,9 +81,9 @@ class AssistantNodes:
             if step in ("TOOL", "ANSWER"):
                 return {
                     "step": step,
-                    "tool_name": parsed.tool_name,
+                    "tool_name": parsed.tool,
                     "tool_input": parsed.tool_input,
-                    "final_response": parsed.final_response if step == "ANSWER" else None,
+                    "final_response": parsed.content if step == "ANSWER" else None,
                     "llm_output_raw": final_raw,
                     "reasoning_steps": reasoning_steps,
                 }
@@ -97,24 +97,24 @@ class AssistantNodes:
             "reasoning_steps": reasoning_steps,
         }
     
-    def observe_and_replan(self, state: AssistantState, tool_result):
-        messages = List(state.get("messages", []))
+    def observe_and_replan(self, state: AssistantState):
         tool_name = state.get("tool_name")
         tool_input = state.get("tool_input")
+        tool_result = state.get("tool_result") or "No result returned."
         serialized_result = json.dumps(tool_result, ensure_ascii=False)
 
-        messages.append(
-            {
+
+        return {
+            "messages": [
+                {
                 "role": "user",
                 "content": f"Tool {tool_name} was called with input: {tool_input} and returned result: {serialized_result}.Use this information to continue and provide the next steps or final answer if ready.",
             }
-        )
-
-        return {
-            "messages": messages,
+            ],
             "step": "THINK",
             "tool_name": None,
             "tool_input": None,
+            "tool_result": None,
         }
     
     async def tool_executor(self, state: AssistantState):
@@ -130,16 +130,14 @@ class AssistantNodes:
                 "error": None,
             }
         except Exception as e:
-            return {"error": f"Tool execution failed: {e}"}
+            return {"error": f"Tool execution failed: {e}", "tool_result": None,}
     
     def response_generator(self, state: AssistantState) -> AssistantState:
         final = state.get("final_response")
         if not final:
             final = "I ran into an issue generating a response."
 
-        messages = list(state.get("messages", []))
-        messages.append({"role": "assistant", "content": final})
-        return {"messages": messages, "final_response": final}
+        return {"messages": [{"role": "assistant", "content": final}], "final_response": final}
     
     async def memory_updater(self, state: AssistantState):
         if self.memory_client is None:
@@ -160,6 +158,7 @@ class AssistantNodes:
             )
 
         except Exception as e:
+            print(f"Memory update failed: {e}")
             return {}
         
         return {}
@@ -167,9 +166,8 @@ class AssistantNodes:
     def error_handler(self, state: AssistantState) -> AssistantState:
         message = state.get("error") or "Unknown error."
         final = f"Sorry, I hit an error: {message}"
-        messages = list(state.get("messages", []))
-        messages.append({"role": "assistant", "content": final})
-        return {"final_response": final, "messages": messages}
 
-
-        
+        return {
+            "messages": [{"role": "assistant", "content": final}],
+            "final_response": final,
+        }
